@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quản lý tiến độ chế bản Flexo</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --surface-2: #eef0f3;
+    --border: #dfe3e8;
+    --text: #1c2126;
+    --text-muted: #6b7380;
+    --accent: #d9530f;
+    --accent-2: #1f4e5f;
+    --accent-soft: #fbe4d5;
+    --danger: #c53030;
+    --success: #2f855a;
+    --radius: 12px;
+    --shadow: 0 1px 2px rgba(20,20,20,0.06), 0 4px 14px rgba(20,20,20,0.06);
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --bg: #14171b;
+      --surface: #1c2126;
+      --surface-2: #23282f;
+      --border: #2f353d;
+      --text: #edeff2;
+      --text-muted: #9aa2ad;
+      --accent: #ff7a33;
+      --accent-2: #6fb3c9;
+      --accent-soft: #3a2519;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 14px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14171b;
+    --surface: #1c2126;
+    --surface-2: #23282f;
+    --border: #2f353d;
+    --text: #edeff2;
+    --text-muted: #9aa2ad;
+    --accent: #ff7a33;
+    --accent-2: #6fb3c9;
+    --accent-soft: #3a2519;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 14px rgba(0,0,0,0.35);
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); height: 100%; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #app { max-width: 1200px; margin: 0 auto; padding: 16px 14px 48px; }
+
+  header.top {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 20;
+    background: var(--bg);
+    padding: 10px 0 12px;
+    margin: -4px 0 4px;
+  }
+  .top-row { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .brand-icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), #a83c0a);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px; flex-shrink: 0;
+  }
+  .brand h1 { font-size: 16px; margin: 0; line-height: 1.25; }
+  .brand .sub { font-size: 12px; color: var(--text-muted); margin: 0; }
+  .top-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+  button {
+    font-family: inherit; cursor: pointer; border: none; border-radius: 9px;
+    padding: 9px 13px; font-size: 13.5px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: transform .08s ease, opacity .15s ease, background .15s ease;
+  }
+  button:active { transform: scale(0.96); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost { background: transparent; color: var(--text-muted); padding: 8px; }
+  .btn-icon { padding: 8px; width: 34px; height: 34px; justify-content: center; }
+  .btn-sm { padding: 5px 9px; font-size: 12px; border-radius: 7px; }
+  .btn-danger { background: transparent; color: var(--danger); }
+
+  .status-bar {
+    display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .status-bar::-webkit-scrollbar { display: none; }
+  .chip {
+    flex-shrink: 0; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; padding: 6px 12px; font-size: 12.5px; color: var(--text-muted);
+    display: flex; gap: 6px; align-items: center; white-space: nowrap;
+  }
+  .chip b { color: var(--text); font-weight: 700; }
+  .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+  #sync-note { font-size: 11.5px; color: var(--text-muted); display:flex; align-items:center; gap:5px; padding: 0 0 6px; }
+  #sync-note .led { width:7px; height:7px; border-radius:50%; background: var(--success); flex-shrink:0; }
+  #sync-note.offline .led { background: var(--danger); }
+
+  .board {
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  @media (min-width: 860px) {
+    .board { flex-direction: row; align-items: flex-start; overflow-x: auto; padding-bottom: 8px; }
+    .col { min-width: 290px; max-width: 320px; flex-shrink: 0; }
+  }
+  .col {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .col-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 12px 10px; border-bottom: 1px solid var(--border);
+  }
+  .col-head .name-wrap { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .col-head .idx {
+    width: 22px; height: 22px; border-radius: 6px; background: var(--accent-soft); color: var(--accent);
+    font-size: 11.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .col-head h3 { font-size: 14px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .col-head .count {
+    font-size: 11.5px; color: var(--text-muted); background: var(--surface-2);
+    border-radius: 999px; padding: 2px 8px; flex-shrink: 0;
+  }
+  .col-body { padding: 10px; display: flex; flex-direction: column; gap: 9px; min-height: 40px; }
+  .col-empty { font-size: 12.5px; color: var(--text-muted); text-align: center; padding: 18px 4px; }
+  .col-add {
+    margin: 0 10px 10px; padding: 8px; border: 1px dashed var(--border); border-radius: 9px;
+    background: transparent; color: var(--text-muted); font-size: 12.5px; justify-content: center; width: calc(100% - 20px);
+  }
+
+  .card {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 11px; cursor: pointer;
+  }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .card-name { font-size: 13.5px; font-weight: 700; line-height: 1.3; }
+  .card-customer { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .prio { flex-shrink: 0; font-size: 10.5px; font-weight: 800; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+  .prio-cao { background: #fde2e1; color: #a3231f; }
+  .prio-vừa { background: #fdf0d5; color: #966214; }
+  .prio-thấp { background: #e1f0e6; color: #266a41; }
+  :root[data-theme="dark"] .prio-cao, .dark-scheme .prio-cao {}
+  .card-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; font-size: 11.5px; color: var(--text-muted); }
+  .card-meta span { display: flex; align-items: center; gap: 3px; }
+  .card-due.overdue { color: var(--danger); font-weight: 700; }
+  .card-move { display: flex; gap: 6px; margin-top: 9px; }
+  .card-move button { flex: 1; padding: 6px; font-size: 11.5px; justify-content: center; }
+
+  .fab {
+    position: fixed; right: 18px; bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    width: 54px; height: 54px; border-radius: 50%; background: var(--accent); color: #fff;
+    font-size: 26px; box-shadow: var(--shadow); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 0;
+  }
+
+  .overlay {
+    position: fixed; inset: 0; background: rgba(10,10,12,0.5); z-index: 50;
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  @media (min-width: 640px) { .overlay { align-items: center; } }
+  .overlay.hidden { display: none; }
+  .sheet {
+    background: var(--surface); width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;
+    border-radius: 16px 16px 0 0; padding: 18px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  }
+  @media (min-width: 640px) { .sheet { border-radius: 16px; } }
+  .sheet h2 { font-size: 16.5px; margin: 0 0 14px; display: flex; justify-content: space-between; align-items: center; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12.5px; color: var(--text-muted); margin-bottom: 5px; font-weight: 600; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 10px 11px; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--surface-2); color: var(--text); font-size: 14px; font-family: inherit;
+  }
+  .field textarea { resize: vertical; min-height: 60px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .sheet-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .sheet-actions button { flex: 1; justify-content: center; padding: 11px; }
+
+  .stage-row {
+    display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .stage-row:last-child { border-bottom: none; }
+  .stage-row input { flex: 1; padding: 7px 9px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: 13.5px; }
+  .stage-row .order-no { font-size: 11.5px; color: var(--text-muted); width: 16px; flex-shrink: 0; }
+  .stage-add { display: flex; gap: 8px; margin-top: 12px; }
+  .stage-add input { flex: 1; padding: 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); }
+  .empty-state { text-align: center; padding: 50px 20px; color: var(--text-muted); }
+  .empty-state .big { font-size: 38px; margin-bottom: 10px; }
+  .hint { font-size: 11.5px; color: var(--text-muted); margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="top-row">
+      <div class="brand">
+        <div class="brand-icon">🏭</div>
+        <div>
+          <h1>Tiến độ chế bản Flexo</h1>
+          <p class="sub" id="stage-count-label">Đang tải...</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="btn-secondary btn-icon" id="btn-settings" title="Quản lý công đoạn">⚙️</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="sync-note"><span class="led"></span><span id="sync-text">Đang kết nối dữ liệu dùng chung…</span></div>
+
+  <div class="status-bar" id="status-bar"></div>
+
+  <div id="board-wrap">
+    <div class="board" id="board"></div>
+  </div>
+</div>
+
+<button class="fab" id="btn-add-fab" title="Thêm đơn hàng">＋</button>
+
+<!-- Order sheet -->
+<div class="overlay hidden" id="order-overlay">
+  <div class="sheet">
+    <h2><span id="order-sheet-title">Thêm đơn hàng</span><button class="btn-ghost btn-icon" data-close="order-overlay">✕</button></h2>
+    <div class="field">
+      <label>Tên đơn hàng / sản phẩm *</label>
+      <input type="text" id="f-name" placeholder="VD: Bao bì mì Hảo Hảo tôm chua">
+    </div>
+    <div class="field">
+      <label>Khách hàng</label>
+      <input type="text" id="f-customer" placeholder="Tên khách hàng">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Số lượng (bản/khuôn)</label>
+        <input type="number" id="f-qty" min="0" placeholder="0">
+      </div>
+      <div class="field">
+        <label>Hạn giao</label>
+        <input type="date" id="f-due">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Mức ưu tiên</label>
+        <select id="f-priority">
+          <option value="thấp">Thấp</option>
+          <option value="vừa" selected>Vừa</option>
+          <option value="cao">Cao</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Công đoạn hiện tại</label>
+        <select id="f-stage"></select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Ghi chú</label>
+      <textarea id="f-notes" placeholder="Thông số bản, độ dày, ghi chú kỹ thuật..."></textarea>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-secondary" id="btn-delete-order" style="display:none;">Xoá đơn</button>
+      <button class="btn-primary" id="btn-save-order" style="flex:2;">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings sheet -->
+<div class="overlay hidden" id="settings-overlay">
+  <div class="sheet">
+    <h2>Quản lý công đoạn<button class="btn-ghost btn-icon" data-close="settings-overlay">✕</button></h2>
+    <p class="hint" style="margin-top:-8px;margin-bottom:10px;">Tự đặt tên các công đoạn theo quy trình xưởng của bạn. Thay đổi áp dụng cho tất cả mọi người.</p>
+    <div id="stage-list"></div>
+    <div class="stage-add">
+      <input type="text" id="new-stage-name" placeholder="Tên công đoạn mới...">
+      <button class="btn-primary btn-sm" id="btn-add-stage">Thêm</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import {
+  getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc,
+  collection, addDoc, query, orderBy, onSnapshot
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA0u6bf9urH19WXctEYYJ1TCTHXyi8BAio",
+  authDomain: "flexo-57cad.firebaseapp.com",
+  projectId: "flexo-57cad",
+  storageBucket: "flexo-57cad.firebasestorage.app",
+  messagingSenderId: "40362945358",
+  appId: "1:40362945358:web:918ddebd98dd3b62084c1f"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const fdb = getFirestore(fbApp);
+const stagesRef = doc(fdb, 'config', 'stages');
+const ordersCol = collection(fdb, 'orders');
+
+(function () {
+  let stages = [];
+  let orders = [];
+  let stagesLoaded = false;
+  let ordersLoaded = false;
+  let editingOrderId = null;
+
+  const $ = (id) => document.getElementById(id);
+  const boardEl = $('board');
+  const statusBar = $('status-bar');
+  const stageListEl = $('stage-list');
+  const stageSelect = $('f-stage');
+  const syncNote = $('sync-note');
+  const syncText = $('sync-text');
+
+  const DEFAULT_STAGES = [
+    { id: 'st1', name: 'Nhận đơn' },
+    { id: 'st3', name: 'Phơi bản' },
+    { id: 'st4', name: 'Rửa / Sấy bản' },
+    { id: 'st2', name: 'Bình bản' },
+    { id: 'st5', name: 'Kiểm tra & Giao bản' },
+  ];
+
+  function uid(prefix) {
+    return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  function escapeHtml(s) {
+    return (s || '').toString().replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function fmtDate(d) {
+    if (!d) return '';
+    const parts = d.split('-');
+    if (parts.length !== 3) return d;
+    return parts[2] + '/' + parts[1] + '/' + parts[0];
+  }
+
+  function isOverdue(d) {
+    if (!d) return false;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const due = new Date(d + 'T00:00:00');
+    return due < today;
+  }
+
+  async function init() {
+    subscribeStages();
+    subscribeOrders();
+
+    document.getElementById('btn-add-fab').addEventListener('click', () => openOrderSheet(null));
+    document.getElementById('btn-settings').addEventListener('click', () => {
+      renderStageSettings();
+      $('settings-overlay').classList.remove('hidden');
+    });
+    document.querySelectorAll('[data-close]').forEach(btn => {
+      btn.addEventListener('click', () => $(btn.getAttribute('data-close')).classList.add('hidden'));
+    });
+    $('order-overlay').addEventListener('click', (e) => { if (e.target.id === 'order-overlay') e.target.classList.add('hidden'); });
+    $('settings-overlay').addEventListener('click', (e) => { if (e.target.id === 'settings-overlay') e.target.classList.add('hidden'); });
+    $('btn-save-order').addEventListener('click', saveOrder);
+    $('btn-delete-order').addEventListener('click', deleteCurrentOrder);
+    $('btn-add-stage').addEventListener('click', addStage);
+    $('new-stage-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') addStage(); });
+  }
+
+  let seeded = false;
+  function subscribeStages() {
+    onSnapshot(stagesRef, (snap) => {
+      if (!snap.exists() && !seeded) {
+        seeded = true;
+        setDoc(stagesRef, { stages: DEFAULT_STAGES, updatedAt: Date.now() }).catch(() => {});
+        stages = DEFAULT_STAGES.slice();
+      } else if (snap.exists()) {
+        const data = snap.data() || {};
+        stages = Array.isArray(data.stages) && data.stages.length ? data.stages : DEFAULT_STAGES.slice();
+      } else {
+        stages = DEFAULT_STAGES.slice();
+      }
+      stagesLoaded = true;
+      syncNote.classList.remove('offline');
+      syncText.textContent = 'Đã kết nối Firebase — dữ liệu dùng chung theo thời gian thực';
+      renderAll();
+    }, (err) => {
+      syncNote.classList.add('offline');
+      syncText.textContent = 'Mất kết nối Firebase (' + (err && err.code || 'lỗi') + ')';
+    });
+  }
+
+  function subscribeOrders() {
+    const q = query(ordersCol, orderBy('createdAt', 'desc'));
+    onSnapshot(q, (snap) => {
+      orders = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+      ordersLoaded = true;
+      renderAll();
+    }, (err) => {
+      syncNote.classList.add('offline');
+      syncText.textContent = 'Mất kết nối Firebase (' + (err && err.code || 'lỗi') + ')';
+    });
+  }
+
+  function renderAll() {
+    if (!stagesLoaded || !ordersLoaded) return;
+    $('stage-count-label').textContent = stages.length + ' công đoạn · ' + orders.length + ' đơn hàng đang theo dõi';
+    renderStatusBar();
+    renderBoard();
+    renderStageSelect();
+  }
+
+  function renderStatusBar() {
+    let html = '';
+    stages.forEach((s, i) => {
+      const count = orders.filter(o => o.stageId === s.id).length;
+      html += '<div class="chip"><span class="dot"></span>' + (i+1) + '. ' + escapeHtml(s.name) + ' <b>' + count + '</b></div>';
+    });
+    statusBar.innerHTML = html;
+  }
+
+  function renderBoard() {
+    let html = '';
+    stages.forEach((stage, i) => {
+      const list = orders.filter(o => o.stageId === stage.id);
+      html += '<div class="col">';
+      html += '<div class="col-head"><div class="name-wrap"><div class="idx">' + (i+1) + '</div><h3>' + escapeHtml(stage.name) + '</h3></div><div class="count">' + list.length + '</div></div>';
+      html += '<div class="col-body">';
+      if (!list.length) {
+        html += '<div class="col-empty">Chưa có đơn hàng</div>';
+      } else {
+        list.forEach(o => { html += renderCard(o, stage, i); });
+      }
+      html += '</div>';
+      html += '<button class="col-add" data-add-stage="' + stage.id + '">＋ Thêm đơn vào công đoạn này</button>';
+      html += '</div>';
+    });
+    boardEl.innerHTML = html;
+
+    boardEl.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.card-move')) return;
+        openOrderSheet(card.getAttribute('data-id'));
+      });
+    });
+    boardEl.querySelectorAll('[data-prev]').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); moveOrder(btn.getAttribute('data-prev'), -1); });
+    });
+    boardEl.querySelectorAll('[data-next]').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); moveOrder(btn.getAttribute('data-next'), 1); });
+    });
+    boardEl.querySelectorAll('[data-add-stage]').forEach(btn => {
+      btn.addEventListener('click', () => openOrderSheet(null, btn.getAttribute('data-add-stage')));
+    });
+  }
+
+  function renderCard(o, stage, stageIdx) {
+    const overdue = isOverdue(o.dueDate) ? ' overdue' : '';
+    let html = '<div class="card" data-id="' + o.id + '">';
+    html += '<div class="card-top"><div><div class="card-name">' + escapeHtml(o.name) + '</div>';
+    if (o.customer) html += '<div class="card-customer">' + escapeHtml(o.customer) + '</div>';
+    html += '</div><div class="prio prio-' + (o.priority || 'vừa') + '">' + (o.priority || 'vừa').toUpperCase() + '</div></div>';
+    html += '<div class="card-meta">';
+    if (o.quantity) html += '<span>📦 ' + escapeHtml(String(o.quantity)) + '</span>';
+    if (o.dueDate) html += '<span class="card-due' + overdue + '">📅 ' + fmtDate(o.dueDate) + (overdue ? ' (trễ hạn)' : '') + '</span>';
+    html += '</div>';
+    html += '<div class="card-move">';
+    if (stageIdx > 0) html += '<button class="btn-secondary btn-sm" data-prev="' + o.id + '">← Lùi</button>';
+    if (stageIdx < stages.length - 1) html += '<button class="btn-primary btn-sm" data-next="' + o.id + '">Tiến →</button>';
+    html += '</div></div>';
+    return html;
+  }
+
+  function renderStageSelect() {
+    stageSelect.innerHTML = stages.map(s => '<option value="' + s.id + '">' + escapeHtml(s.name) + '</option>').join('');
+  }
+
+  function moveOrder(orderId, dir) {
+    const o = orders.find(x => x.id === orderId);
+    if (!o) return;
+    const idx = stages.findIndex(s => s.id === o.stageId);
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= stages.length) return;
+    updateDoc(doc(fdb, 'orders', orderId), { stageId: stages[newIdx].id, updatedAt: Date.now() }).catch(() => {});
+  }
+
+  function openOrderSheet(orderId, presetStageId) {
+    editingOrderId = orderId;
+    const isEdit = !!orderId;
+    $('order-sheet-title').textContent = isEdit ? 'Sửa đơn hàng' : 'Thêm đơn hàng';
+    $('btn-delete-order').style.display = isEdit ? 'block' : 'none';
+    if (isEdit) {
+      const o = orders.find(x => x.id === orderId);
+      $('f-name').value = o.name || '';
+      $('f-customer').value = o.customer || '';
+      $('f-qty').value = o.quantity || '';
+      $('f-due').value = o.dueDate || '';
+      $('f-priority').value = o.priority || 'vừa';
+      $('f-notes').value = o.notes || '';
+      renderStageSelect();
+      stageSelect.value = o.stageId;
+    } else {
+      $('f-name').value = '';
+      $('f-customer').value = '';
+      $('f-qty').value = '';
+      $('f-due').value = '';
+      $('f-priority').value = 'vừa';
+      $('f-notes').value = '';
+      renderStageSelect();
+      stageSelect.value = presetStageId || (stages[0] && stages[0].id) || '';
+    }
+    $('order-overlay').classList.remove('hidden');
+  }
+
+  function saveOrder() {
+    const name = $('f-name').value.trim();
+    if (!name) { $('f-name').focus(); return; }
+    const data = {
+      name: name,
+      customer: $('f-customer').value.trim(),
+      quantity: $('f-qty').value ? Number($('f-qty').value) : null,
+      dueDate: $('f-due').value || null,
+      priority: $('f-priority').value,
+      notes: $('f-notes').value.trim(),
+      stageId: stageSelect.value,
+      updatedAt: Date.now(),
+    };
+    const btn = $('btn-save-order');
+    btn.disabled = true;
+    const p = editingOrderId
+      ? updateDoc(doc(fdb, 'orders', editingOrderId), data)
+      : addDoc(ordersCol, Object.assign({ createdAt: Date.now() }, data));
+    p.then(() => {
+      $('order-overlay').classList.add('hidden');
+    }).catch((e) => {
+      alert('Không thể lưu: ' + (e && e.message || 'lỗi không xác định'));
+    }).finally(() => { btn.disabled = false; });
+  }
+
+  function deleteCurrentOrder() {
+    if (!editingOrderId) return;
+    if (!confirm('Xoá đơn hàng này khỏi hệ thống?')) return;
+    deleteDoc(doc(fdb, 'orders', editingOrderId)).then(() => {
+      $('order-overlay').classList.add('hidden');
+    }).catch((e) => alert('Không thể xoá: ' + (e && e.message || '')));
+  }
+
+  function renderStageSettings() {
+    let html = '';
+    stages.forEach((s, i) => {
+      html += '<div class="stage-row">';
+      html += '<span class="order-no">' + (i+1) + '</span>';
+      html += '<input type="text" value="' + escapeHtml(s.name) + '" data-stage-id="' + s.id + '" data-field="rename">';
+      html += '<button class="btn-ghost btn-icon" data-stage-up="' + s.id + '" ' + (i===0?'disabled style="opacity:.3"':'') + '>↑</button>';
+      html += '<button class="btn-ghost btn-icon" data-stage-down="' + s.id + '" ' + (i===stages.length-1?'disabled style="opacity:.3"':'') + '>↓</button>';
+      html += '<button class="btn-danger btn-icon" data-stage-del="' + s.id + '">🗑</button>';
+      html += '</div>';
+    });
+    stageListEl.innerHTML = html;
+
+    stageListEl.querySelectorAll('[data-field="rename"]').forEach(inp => {
+      inp.addEventListener('change', () => renameStage(inp.getAttribute('data-stage-id'), inp.value.trim()));
+    });
+    stageListEl.querySelectorAll('[data-stage-up]').forEach(btn => {
+      btn.addEventListener('click', () => reorderStage(btn.getAttribute('data-stage-up'), -1));
+    });
+    stageListEl.querySelectorAll('[data-stage-down]').forEach(btn => {
+      btn.addEventListener('click', () => reorderStage(btn.getAttribute('data-stage-down'), 1));
+    });
+    stageListEl.querySelectorAll('[data-stage-del]').forEach(btn => {
+      btn.addEventListener('click', () => deleteStage(btn.getAttribute('data-stage-del')));
+    });
+  }
+
+  function persistStages(newStages) {
+    stages = newStages;
+    setDoc(stagesRef, { stages: newStages, updatedAt: Date.now() }).catch((e) => {
+      alert('Không thể lưu công đoạn: ' + (e && e.message || ''));
+    });
+  }
+
+  function renameStage(id, newName) {
+    if (!newName) return;
+    persistStages(stages.map(s => s.id === id ? Object.assign({}, s, { name: newName }) : s));
+  }
+
+  function reorderStage(id, dir) {
+    const idx = stages.findIndex(s => s.id === id);
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= stages.length) return;
+    const arr = stages.slice();
+    const tmp = arr[idx]; arr[idx] = arr[newIdx]; arr[newIdx] = tmp;
+    persistStages(arr);
+    renderStageSettings();
+  }
+
+  function deleteStage(id) {
+    const inUse = orders.filter(o => o.stageId === id).length;
+    if (inUse > 0) {
+      alert('Không thể xoá: còn ' + inUse + ' đơn hàng đang ở công đoạn này. Hãy chuyển đơn hàng sang công đoạn khác trước.');
+      return;
+    }
+    if (stages.length <= 1) { alert('Cần giữ lại ít nhất 1 công đoạn.'); return; }
+    if (!confirm('Xoá công đoạn này?')) return;
+    persistStages(stages.filter(s => s.id !== id));
+    renderStageSettings();
+  }
+
+  function addStage() {
+    const inp = $('new-stage-name');
+    const name = inp.value.trim();
+    if (!name) return;
+    const arr = stages.concat([{ id: uid('st'), name: name }]);
+    persistStages(arr);
+    inp.value = '';
+    renderStageSettings();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
